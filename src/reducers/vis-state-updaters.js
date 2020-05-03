@@ -26,49 +26,46 @@ import get from 'lodash.get';
 import xor from 'lodash.xor';
 import copy from 'copy-to-clipboard';
 import {parseFieldValue} from 'utils/data-utils';
-
 // Tasks
 import {LOAD_FILE_TASK} from 'tasks/tasks';
-
 // Actions
-import {loadFilesErr, loadNextFile, loadFileSuccess} from 'actions/vis-state-actions';
-
+import {loadFilesErr, loadFileSuccess, loadNextFile} from 'actions/vis-state-actions';
 // Utils
-import {getDefaultInteraction, findFieldsToShow} from 'utils/interaction-utils';
+import {findFieldsToShow, getDefaultInteraction} from 'utils/interaction-utils';
 import {
-  FILTER_UPDATER_PROPS,
-  LIMITED_FILTER_EFFECT_PROPS,
   applyFilterFieldName,
   applyFiltersToDatasets,
-  generatePolygonFilter,
-  filterDatasetCPU,
-  getDefaultFilter,
-  getFilterPlot,
-  getDefaultFilterPlotType,
-  isInRange,
-  getFilterIdInFeature,
   featureToFilterValue,
+  FILTER_UPDATER_PROPS,
+  filterDatasetCPU,
+  generatePolygonFilter,
+  getDefaultFilter,
+  getDefaultFilterPlotType,
+  getFilterIdInFeature,
+  getFilterPlot,
+  isInRange,
+  LIMITED_FILTER_EFFECT_PROPS,
   updateFilterDataId
 } from 'utils/filter-utils';
-import {setFilterGpuMode, assignGpuChannel} from 'utils/gpu-filter-utils';
+import {assignGpuChannel, setFilterGpuMode} from 'utils/gpu-filter-utils';
 import {createNewDataEntry, sortDatasetByColumn} from 'utils/dataset-utils';
 import {set, toArray} from 'utils/utils';
 
-import {findDefaultLayer, calculateLayerData} from 'utils/layer-utils/layer-utils';
+import {calculateLayerData, findDefaultLayer} from 'utils/layer-utils/layer-utils';
 
 import {
+  mergeAnimationConfig,
   mergeFilters,
-  mergeLayers,
   mergeInteractions,
   mergeLayerBlending,
-  mergeSplitMaps,
-  mergeAnimationConfig
+  mergeLayers,
+  mergeSplitMaps
 } from './vis-state-merger';
 
 import {
   addNewLayersToSplitMap,
-  removeLayerFromSplitMaps,
-  computeSplitMapLayers
+  computeSplitMapLayers,
+  removeLayerFromSplitMaps
 } from 'utils/split-map-utils';
 
 import {Layer, LayerClasses} from 'layers';
@@ -454,48 +451,6 @@ export function layerVisConfigChangeUpdater(state, action) {
   }
 
   return updateStateWithLayerAndData(state, {layer: newLayer, idx});
-}
-
-/* eslint-enable max-statements */
-
-/**
- * Update `interactionConfig`
- * @memberof visStateUpdaters
- * @param {Object} state `visState`
- * @param {Object} action action
- * @param {Object} action.config new config as key value map: `{tooltip: {enabled: true}}`
- * @returns {Object} nextState
- * @public
- */
-export function interactionConfigChangeUpdater(state, action) {
-  const {config} = action;
-
-  const interactionConfig = {
-    ...state.interactionConfig,
-    ...{[config.id]: config}
-  };
-
-  // Don't enable tooltip and brush at the same time
-  // but coordinates can be shown at all time
-  const contradict = ['brush', 'tooltip'];
-
-  if (
-    contradict.includes(config.id) &&
-    config.enabled &&
-    !state.interactionConfig[config.id].enabled
-  ) {
-    // only enable one interaction at a time
-    contradict.forEach(k => {
-      if (k !== config.id) {
-        interactionConfig[k] = {...interactionConfig[k], enabled: false};
-      }
-    });
-  }
-
-  return {
-    ...state,
-    interactionConfig
-  };
 }
 
 /**
@@ -1071,6 +1026,54 @@ export const layerHoverUpdater = (state, action) => ({
   ...state,
   hoverInfo: action.info
 });
+
+/* eslint-enable max-statements */
+
+/**
+ * Update `interactionConfig`
+ * @memberof visStateUpdaters
+ * @param {Object} state `visState`
+ * @param {Object} action action
+ * @param {Object} action.config new config as key value map: `{tooltip: {enabled: true}}`
+ * @returns {Object} nextState
+ * @public
+ */
+export function interactionConfigChangeUpdater(state, action) {
+  const {config} = action;
+
+  const interactionConfig = {
+    ...state.interactionConfig,
+    ...{[config.id]: config}
+  };
+
+  // Don't enable tooltip and brush at the same time
+  // but coordinates can be shown at all time
+  const contradict = ['brush', 'tooltip'];
+
+  if (
+    contradict.includes(config.id) &&
+    config.enabled &&
+    !state.interactionConfig[config.id].enabled
+  ) {
+    // only enable one interaction at a time
+    contradict.forEach(k => {
+      if (k !== config.id) {
+        interactionConfig[k] = {...interactionConfig[k], enabled: false};
+      }
+    });
+  }
+
+  const newState = {
+    ...state,
+    interactionConfig
+  };
+
+  if (config.id === 'geocoder' && !config.enabled) {
+    return removeDatasetUpdater(newState, {key: 'geocoder_dataset'});
+  }
+
+  return newState;
+}
 
 /**
  * Trigger layer click event with clicked object
